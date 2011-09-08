@@ -13,6 +13,7 @@ except ImportError:
 from UserDict import DictMixin
 import tornado.httpclient
 from tornado.httpclient import AsyncHTTPClient
+from tornado.options import options
 import logging
 
 sdb_connect_timeout = 10
@@ -296,15 +297,16 @@ class SimpleDB(object):
         request.set_parameter('Version', self.service_version)
         request.sign_request(self.signature_method(), self.aws_key, self.aws_secret)
         body = request.to_postdata()
-        logging.info('sdb request %s' % request.url)
+        if options.verbose > 4:
+            logging.info('sdb request %s' % request.url)
         tornado_request = tornado.httpclient.HTTPRequest(request.url,
                                                          method = request.method,
                                                          headers = headers,
                                                          body = body,
                                                          connect_timeout = sdb_connect_timeout,
                                                          request_timeout = sdb_request_timeout,
-                                                         log_request = True,
-                                                         validate_cert = False
+                                                         log_request = options.verbose > 2,
+                                                         validate_cert = False if options.debug else True
                                                          )
         self.http_async.fetch(tornado_request, functools.partial(self._on_async_request_response, user_callback))
 
