@@ -231,7 +231,7 @@ class SimpleDB(object):
             self.scheme = 'http'
         self.db = db
         self.http = httplib2.Http()
-        self.http_async = tornado.httpclient.AsyncHTTPClient()
+        self.http_async = tornado.httpclient.AsyncHTTPClient(force_instance=True)
         self.encoder = encoder
 
     def _make_request(self, request):
