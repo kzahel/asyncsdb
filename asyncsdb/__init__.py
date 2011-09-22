@@ -117,6 +117,7 @@ class SignatureMethod_HMAC_SHA256(SignatureMethod):
 
 class Response(object):
     def __init__(self, response, content, request_id, usage):
+        self.error = None
         self.response = response
         self.content = content
         self.request_id = request_id
@@ -231,7 +232,7 @@ class SimpleDB(object):
             self.scheme = 'http'
         self.db = db
         self.http = httplib2.Http()
-        self.http_async = tornado.httpclient.AsyncHTTPClient(force_instance=True)
+        self.http_async = tornado.httpclient.AsyncHTTPClient(force_instance=True, max_clients=15)
         self.encoder = encoder
 
     def _make_request(self, request):
@@ -263,23 +264,32 @@ class SimpleDB(object):
         if content is None:
             logging.warn( 'failed to get sdb response body %s' % tornado_response )
             if tornado_response.error:
-                return user_callback( Response({}, '', 'error', 'error') )
+                resp = Response({}, '', 'error', 'error')
+                resp.error = tornado_response.error
+                return user_callback( resp )
 
         e = ET.fromstring(content)
 
         error = e.find('Errors/Error')
         if error:
-            message = error.find('Message').text
+            if error:
+                message = error.find('Message').text
+            else:
+                message = error
             meta = e.find('{%s}ResponseMetadata' % self.ns)
             if not meta:
                 logging.info('could not find response metadata %s' % content)
-                return user_callback( Response(response, content, 'could-not-find', 'could-not-find') )
+                resp = Response(response, content, 'could-not-find', 'could-not-find')
+                resp.error = True
+                return user_callback( resp )
             request_id = meta.find('{%s}RequestId' % self.ns).text
             usage = meta.find('{%s}BoxUsage' % self.ns).text
 
             logging.error( 'sdb error %s' % message )
             #raise SimpleDBError(message)
-            return user_callback( Response(response, content, request_id, usage) )
+            resp = Response(response, content, request_id, usage)
+            resp.error = True
+            return user_callback( resp )
 
         meta = e.find('{%s}ResponseMetadata' % self.ns)
         request_id = meta.find('{%s}RequestId' % self.ns).text
@@ -421,7 +431,7 @@ class SimpleDB(object):
                 metadata[tag] = text
         return metadata
 
-    def put_attributes(self, domain, item, attributes, async=True, callback=None):
+    def put_attributes(self, domain, item, attributes, async=True, callback=None, replace=True):
         """
         Creates or replaces attributes in an item.
 
@@ -470,13 +480,13 @@ class SimpleDB(object):
                 data['Attribute.%s.Name' % idx] = name
                 data['Attribute.%s.Value' % idx] = value
                 if len(attribute) == 2 or attribute[2]:
-                    data['Attribute.%s.Replace' % idx] = 'true'
+                    data['Attribute.%s.Replace' % idx] = 'true' if replace else 'false'
                 idx += 1
 
         #print '\n\nRAW SDB put attributes', attributes,'\n\n'
         request = Request("POST", self._sdb_url(), data)
         if async:
-            self._make_request_async(request, callback)
+            return self._make_request_async(request, callback)
         else:
             self._make_request(request)
 
@@ -1172,8 +1182,8 @@ class Item(DictMixin):
     def keys(self):
         return self.attributes.keys()
 
-    def save(self, callback=None):
-        self.simpledb.put_attributes(self.domain, self, self.attributes, callback=callback)
+    def save(self, callback=None, replace=True):
+        self.simpledb.put_attributes(self.domain, self, self.attributes, callback=callback, replace=replace)
 
 
 # everybody shares this instance
