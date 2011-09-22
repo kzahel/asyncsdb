@@ -308,7 +308,8 @@ class SimpleDB(object):
                                                          log_request = options.verbose > 2,
                                                          validate_cert = False if options.debug else True
                                                          )
-        self.http_async.fetch(tornado_request, functools.partial(self._on_async_request_response, user_callback))
+        request_obj = self.http_async.fetch(tornado_request, functools.partial(self._on_async_request_response, user_callback))
+        return request_obj
 
 
     def _sdb_url(self):
@@ -624,7 +625,8 @@ class SimpleDB(object):
 
         start_time = time.time()
         real_cb = lambda response: cb(response, callback, domain, item, attributes, start_time)
-        self._make_request_async(request, real_cb)
+        request_obj = self._make_request_async(request, real_cb)
+        return request_obj
 
     def _parse_attributes(self, domain, attribute_node):
         # attribute_node should be an ElementTree node containing Attribute
@@ -1089,7 +1091,8 @@ class Domain(object):
         return self._get_query().item_names()
 
     def get_async(self, name, user_callback = None):
-        Item.load(self.simpledb, self, name, user_callback)
+        request = Item.load(self.simpledb, self, name, user_callback)
+        return request
 
     def get(self, name):
         if name not in self.items:
@@ -1142,7 +1145,8 @@ class Item(DictMixin):
                 obj = cls(simpledb, domain, name, attrs)
                 return user_callback(obj, response)
             real_cb = lambda attrs, response: cb(cls, simpledb, domain, name, user_callback, attrs, response)
-            attrs = simpledb.get_attributes_async(real_cb, domain, name)
+            request = simpledb.get_attributes_async(real_cb, domain, name)
+            return request
         else:
             logging.error( 'BLOCKING GET!' )
             attrs = simpledb.get_attributes(domain, name)
