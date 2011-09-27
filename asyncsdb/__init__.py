@@ -212,7 +212,7 @@ class SimpleDB(object):
 
 
     def __init__(self, aws_access_key, aws_secret_access_key, db='sdb.amazonaws.com', 
-                 secure=True, encoder=AttributeEncoder()):
+                 secure=True, encoder=AttributeEncoder(), httpclient=None):
         """
         Use your `aws_access_key` and `aws_secret_access_key` to create a connection to
         Amazon SimpleDB.
@@ -232,7 +232,7 @@ class SimpleDB(object):
             self.scheme = 'http'
         self.db = db
         self.http = httplib2.Http()
-        self.http_async = tornado.httpclient.AsyncHTTPClient(force_instance=True, max_clients=15, log_name="asyncsdb")
+        self.http_async = httpclient or tornado.httpclient.AsyncHTTPClient(force_instance=True, max_clients=15, log_name="asyncsdb")
         self.encoder = encoder
 
     def _make_request(self, request):
