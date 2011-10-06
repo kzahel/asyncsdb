@@ -15,6 +15,7 @@ import tornado.httpclient
 from tornado.httpclient import AsyncHTTPClient
 from tornado.options import options
 import logging
+from raptor.statsd_client import Statsd
 
 sdb_connect_timeout = 10
 sdb_request_timeout = 10
@@ -223,7 +224,6 @@ class SimpleDB(object):
         The optional `secure` argument specifies whether HTTPS should be used. The 
         default value is ``True``.
         """
-
         self.aws_key = aws_access_key
         self.aws_secret = aws_secret_access_key
         if secure:
@@ -319,6 +319,7 @@ class SimpleDB(object):
                                                          validate_cert = False if options.debug else True
                                                          )
         request_obj = self.http_async.fetch(tornado_request, functools.partial(self._on_async_request_response, user_callback))
+        Statsd.increment('sdb_request')
         return request_obj
 
 
