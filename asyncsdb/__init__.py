@@ -256,12 +256,15 @@ class SimpleDB(object):
 
 
     def _on_async_request_response(self, user_callback, tornado_response):
+        ms = int( (time.time() - tornado_response.request.start_time) * 1000 )
+        Statsd.timing('sdb_request', ms)
         response = tornado_response.headers
         content = tornado_response.body
         #print 'got response',content
 
         #import random
         if content is None:
+            Statsd.increment('sdb_fail')
             logging.warn( 'failed to get sdb response body %s' % tornado_response )
             if tornado_response.error:
                 resp = Response({}, '', 'error', 'error')
@@ -272,6 +275,7 @@ class SimpleDB(object):
 
         error = e.find('Errors/Error')
         if error:
+            Statsd.increment('sdb_error')
             if error:
                 message = error.find('Message').text
             else:
