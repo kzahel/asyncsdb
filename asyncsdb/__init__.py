@@ -4,7 +4,6 @@ import urllib
 import time
 import hmac
 import base64
-import httplib2
 import functools
 try:
     import xml.etree.ElementTree as ET
@@ -15,7 +14,14 @@ import tornado.httpclient
 from tornado.httpclient import AsyncHTTPClient
 from tornado.options import options
 import logging
-from raptor.statsd_client import Statsd
+try:
+    from raptor.statsd_client import Statsd
+except:
+    class Statsd():
+        @classmethod
+        def timing(*args): pass
+        @classmethod
+        def increment(*args): pass
 
 sdb_connect_timeout = 10
 sdb_request_timeout = 10
@@ -231,7 +237,7 @@ class SimpleDB(object):
         else:
             self.scheme = 'http'
         self.db = db
-        self.http = httplib2.Http()
+        #self.http = httplib2.Http()
         self.http_async = httpclient or tornado.httpclient.AsyncHTTPClient(force_instance=True, max_clients=15, log_name="asyncsdb")
         self.encoder = encoder
 
@@ -323,7 +329,6 @@ class SimpleDB(object):
                                                          validate_cert = False if options.debug else True
                                                          )
         request_obj = self.http_async.fetch(tornado_request, functools.partial(self._on_async_request_response, user_callback))
-        Statsd.increment('sdb_request')
         return request_obj
 
 
